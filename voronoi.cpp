@@ -19,9 +19,9 @@ Vector2 VoronoiEdge::end() const {
 }
 
 void VoronoiEdge::_bind_methods() {
-	ObjectTypeDB::bind_method(_MD("sites"), &VoronoiEdge::sites);
-	ObjectTypeDB::bind_method(_MD("start"), &VoronoiEdge::start);
-	ObjectTypeDB::bind_method(_MD("end"), &VoronoiEdge::end);
+	ClassDB::bind_method(D_METHOD("sites"), &VoronoiEdge::sites);
+	ClassDB::bind_method(D_METHOD("start"), &VoronoiEdge::start);
+	ClassDB::bind_method(D_METHOD("end"), &VoronoiEdge::end);
 }
 
 int VoronoiSite::index() const {
@@ -36,7 +36,7 @@ Variant VoronoiSite::edges() const {
 	Vector<Variant> result;
 	const jcv_graphedge* graphedge = _site->edges;
 	while (graphedge) {
-		result.push_back(_diagram->_edges_by_address[Variant((long)graphedge->edge)]);
+		result.push_back(_diagram->_edges_by_address[Variant((int64_t)graphedge->edge)]);
 		graphedge = graphedge->next;
 	}
 	return result;
@@ -54,10 +54,10 @@ Variant VoronoiSite::neighbors() const {
 }
 
 void VoronoiSite::_bind_methods() {
-	ObjectTypeDB::bind_method(_MD("index"), &VoronoiSite::index);
-	ObjectTypeDB::bind_method(_MD("center"), &VoronoiSite::center);
-	ObjectTypeDB::bind_method(_MD("edges"), &VoronoiSite::edges);
-	ObjectTypeDB::bind_method(_MD("neighbors"), &VoronoiSite::neighbors);
+	ClassDB::bind_method(D_METHOD("index"), &VoronoiSite::index);
+	ClassDB::bind_method(D_METHOD("center"), &VoronoiSite::center);
+	ClassDB::bind_method(D_METHOD("edges"), &VoronoiSite::edges);
+	ClassDB::bind_method(D_METHOD("neighbors"), &VoronoiSite::neighbors);
 }
 
 VoronoiDiagram::VoronoiDiagram()
@@ -91,7 +91,7 @@ void VoronoiDiagram::build_objects() {
 	while (edge) {
 		Variant gd_edge = Variant(memnew(VoronoiEdge(edge, this)));
 		gd_edges.push_back(gd_edge);
-		_edges_by_address[Variant((long)edge)] = gd_edge;
+		_edges_by_address[Variant((int64_t)edge)] = gd_edge;
 		edge = edge->next;
 	}
 	_edges = gd_edges;
@@ -107,8 +107,8 @@ void VoronoiDiagram::build_objects() {
 }
 
 void VoronoiDiagram::_bind_methods() {
-	ObjectTypeDB::bind_method(_MD("edges"), &VoronoiDiagram::edges);
-	ObjectTypeDB::bind_method(_MD("sites"), &VoronoiDiagram::sites);
+	ClassDB::bind_method(D_METHOD("edges"), &VoronoiDiagram::edges);
+	ClassDB::bind_method(D_METHOD("sites"), &VoronoiDiagram::sites);
 }
 
 void Voronoi::set_points(Vector<Vector2> points) {
@@ -118,17 +118,21 @@ void Voronoi::set_points(Vector<Vector2> points) {
 	new_points.reserve(points.size());
 
 	// translate Godot Vector2 points into jcv_points
-	for (int i = 0; i < points.size(); i++)
-		new_points.push_back({ points[i].x, points[i].y });
+	for (int i = 0; i < points.size(); i++) {
+		jcv_point point = { points[i].x, points[i].y };
+		new_points.push_back(point);
+	}
 
 	_points.swap(new_points);
 }
 
 void Voronoi::set_boundaries(Rect2 boundaries) {
-	_boundaries.reset(new jcv_rect {
-		jcv_point { boundaries.pos.x, boundaries.pos.y },
-		jcv_point { boundaries.pos.x + boundaries.size.x, boundaries.pos.y + boundaries.size.y }
-	});
+	jcv_point p1 = { boundaries.position.x, boundaries.position.y };
+	jcv_point p2 = { boundaries.position.x + boundaries.size.x, boundaries.position.y + boundaries.size.y };
+	jcv_rect * rect = new jcv_rect();
+	rect->min = p1;
+	rect->max = p2;
+	_boundaries.reset(rect);
 }
 
 void* useralloc(void* ctx, size_t size) {
@@ -140,14 +144,14 @@ void userfree(void* ctx, void* ptr) {
 }
 
 Ref<VoronoiDiagram> Voronoi::generate_diagram() const {
-	Ref<VoronoiDiagram> result { memnew(VoronoiDiagram) };
+	Ref<VoronoiDiagram> result = memnew(VoronoiDiagram);
 	jcv_diagram_generate_useralloc(_points.size(), _points.data(), _boundaries.get(), NULL, &useralloc, &userfree, result->_diagram);
 	result->build_objects();
 	return result;
 }
 
 void Voronoi::_bind_methods() {
-    ObjectTypeDB::bind_method(_MD("set_points", "points"), &Voronoi::set_points);
-	ObjectTypeDB::bind_method(_MD("set_boundaries", "boundaries"), &Voronoi::set_boundaries);
-	ObjectTypeDB::bind_method(_MD("generate_diagram"), &Voronoi::generate_diagram);
+    ClassDB::bind_method(D_METHOD("set_points", "points"), &Voronoi::set_points);
+	ClassDB::bind_method(D_METHOD("set_boundaries", "boundaries"), &Voronoi::set_boundaries);
+	ClassDB::bind_method(D_METHOD("generate_diagram"), &Voronoi::generate_diagram);
 }
